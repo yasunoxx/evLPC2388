@@ -2,11 +2,11 @@
 TOOLCHAIN = arm-none-eabi
 
 # Linker Flags for linking Standard Libraries
-STDLIBS = -L/usr/lib//arm-none-eabi/lib -lm -lc -lnosys
+STDLIBS = -L/usr/lib/arm-none-eabi/lib -lm -lc -lnosys
 STDLIBS += -L/usr/lib/gcc/arm-none-eabi/10.3.1 -lgcc
 
 # Define Target Name
-TARGET = firmware
+TARGET = test03
 
 # Subdirectories of Additional C Source Files
 CSRC_DIRS = core lpc2388
@@ -26,7 +26,8 @@ OPT =
 INC = $(foreach dir, $(CSRC_DIRS), -I$(dir))
 
 # FLAGs
-CFLAGS = $(INC) -O$(OPT) -mcpu=arm7tdmi-s
+CFLAGS = $(INC) -O$(OPT) -mcpu=arm7tdmi-s -I../include \
+	-DevLPC2388
 ASFLAGS = -Wa -mcpu=arm7tdmi-s
 LDFLAGS = -u _printf_float --print-memory-usage
 CFLAGS += -g3 -gdwarf-2 -gstrict-dwarf

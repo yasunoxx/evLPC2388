@@ -44,6 +44,8 @@
 #endif
 #include "lcd1602.h"
 #include "vic_lpc23xx.h"
+#include <stdint.h>
+#include <stdbool.h>
 /* #include <cr_section_macros.h> */
 
 static int serial_read(char *buf, int cnt, void *extobj)
@@ -72,6 +74,9 @@ static int user_callback(const char *text, void *extobj)
 
 static char *autoexecfile[] = {"AUTOEXEC.MOT", (char *)0};
 
+extern uint8_t xymodem_main( void );
+extern uint8_t vic_SlowTick;
+
 int main(void)
 {
     int loop;
@@ -81,7 +86,7 @@ int main(void)
 #endif
 /*    SystemCoreClockUpdate(); */
 
-    for( loop = 0; loop > 100000; loop++ );
+    for( loop = 0; loop > 100000UL; loop++ );
 
     uart0_init();
     xdev_out(uart0_putc);
@@ -102,6 +107,8 @@ int main(void)
 
     xprintf("done.\n\n");
 
+    xprintf( "test xymodem.c\nsend anything\n" );
+    xprintf( "done, result: %02X\n", xymodem_main() );
 #ifdef NOWDENUG
     // exec AUTOEXEC.MOT file
     xprintf("Try to run %s file.\n", autoexecfile[0]);

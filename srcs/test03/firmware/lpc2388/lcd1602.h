@@ -79,22 +79,19 @@ void LCD_ShiftCursor(signed int n);
 
 
 // HD44780 bus lines
-#define   LCD_EN    8
-#define   LCD_RS    9
+#ifndef NEWWIRING
+#define   LCD_EN    8    // green
+#define   LCD_RS    9    // blue
 #define   LCD_DATA  4
-//  ^ LCD_DATA = LSB of bits( ex.: define 4 -> select ["4"..7] or ["4"..11] )
+#else
+#define   LCD_EN    12    // green
+#define   LCD_RS    13    // blue
+#define   LCD_DATA  23
+#endif
+//  ^ LCD_DATA = LSB of bits position( ex.: define 23 -> select ["23"..26] )
 
 // do not edit avobe lines.
 #define LCD_NOP() asm volatile("mov r0, r0")
-#define   LCD_EN_MASK(x)    ( x << LCD_EN )
-#define   LCD_RS_MASK(x)    ( x << LCD_RS )
-#define   LCD_DATA_MASK(x)  ( x << LCD_DATA )
-#define EN_PIN(x)   LCD_NOP(); FIO0PIN = ( ( FIO0PIN & ~LCD_EN_MASK(x) ) | LCD_EN_MASK(x) )
-#define RW_PIN(x)   LCD_NOP(); FIO0PIN = ( ( FIO0PIN & 0xFFFFFFFF ) | ( x << 0 ) )
-#define RS_PIN(x)   LCD_NOP(); FIO0PIN = ( ( FIO0PIN & ~LCD_RS_MASK(x) ) | LCD_RS_MASK(x) )
-#define PUT_DATA(x) LCD_NOP(); FIO0PIN = ( ( FIO0PIN & ~LCD_DATA_MASK(x) ) | LCD_DATA_MASK(x) )
-#define GET_DATA(x)  ( FIO0PIN & LCD_DATA_MASK(x) )
-// factor x on *_DATA() is bus size.
 
 #ifdef __cplusplus
 }

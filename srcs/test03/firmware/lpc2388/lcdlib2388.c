@@ -108,6 +108,7 @@ void LCD_Write(unsigned char rs, unsigned char data) {
 #else  /* #ifdef _LCD_NO_BF_CHECK_ */
 	_lcd_wait_usec(100);
 	_lcd_write_no_busy_check(rs, (data >> 4));   /* write data high */
+	_lcd_wait_usec(100);
 	_lcd_write_no_busy_check(rs, (data & 0x0F)); /* write data low  */
 #endif
 	/* wait 1.5msec in case of Clear Display and Return Home */
@@ -156,10 +157,18 @@ void LCD_PutChar(unsigned char c)
 
 void LCD_Puts(unsigned char *buf, unsigned char maxlen)
 {
-	while((*buf != '\0') && (*buf != 0x0a) && (*buf != 0x0d) && (maxlen > 0)) {
-		LCD_Putc(*buf);
-		buf++;
-		maxlen--;
+    unsigned char ptr = 0;
+    while(maxlen > 0)
+    {
+        if( buf[ ptr ] != '\0' )
+        {
+    		LCD_Putc( buf[ ptr++ ] );
+		    maxlen--;
+        }
+        else
+        {
+            break;
+        }
 	}
 }
 
@@ -220,9 +229,9 @@ void LCD_ShiftCursor(signed int n)
 /  ここではCQ-FRK-NXP-ARMマイコン用マザーボードに合わせた内容になっている       /
 /  LCD Pin Assign4..7                                                      /
 /     D[4..7]  P0[]                                                        /
-/     RS       P3[9]                                                       /
-/     R/W      P3[0] not used                                              /
-/     EN       P3[8]                                                       /
+/     RS       P0[9]                                                       /
+/     R/W      P0[0] not used                                              /
+/     EN       P0[8]                                                       /
 / ----------------------------------------------------------------------- */
 
 /* wait 100 nano second or more */
@@ -299,21 +308,36 @@ static void _lcd_wait_usec(unsigned int t)
 */
 static void _lcd_write_no_busy_check(unsigned char rs, unsigned char data)
 {
-    EN_PIN(0);  // 'L'
-    RW_PIN(0);           /* R/W=W  */
-    RS_PIN(rs);
-    _lcd_wait_300ns();
-
-    /* EN=1                  */
-    EN_PIN(LCD_EN); // 'H'
+    LCD_NOP();
+    FIO0CLR = 1<<LCD_EN;
+    if( rs == 0 )
+    {
+        LCD_NOP();
+        FIO0CLR = 1<<LCD_RS;
+    }
+    else
+    {
+        LCD_NOP();
+        FIO0SET = 1<<LCD_RS;
+    }
     _lcd_wait_300ns();
 
     /* write data to D[4..7] */
-    PUT_DATA(data);
+    LCD_NOP();
+    FIO0CLR = 0b1111<<LCD_DATA;
+    LCD_NOP();
+    FIO0SET = data<<LCD_DATA;
+    _lcd_wait_300ns();
+    _lcd_wait_300ns();
+
+    /* EN=1                  */
+    LCD_NOP();
+    FIO0SET = 1<<LCD_EN;
     _lcd_wait_300ns();
 
     /* EN=0                  */
-    EN_PIN(0);  // 'L'
+    LCD_NOP();
+    FIO0CLR = 1<<LCD_EN;
     _lcd_wait_300ns();
 }
 
@@ -325,51 +349,19 @@ static void _lcd_write_no_busy_check(unsigned char rs, unsigned char data)
 #ifdef _LCD_READ_SUPPORT_
 static unsigned char _lcd_read_4bit(unsigned char rs)
 {
-    unsigned char data;
-
-    /* config D[4..7](data) as Input */
-    FIO3DIR0 |= 0x70;
-    FIO3DIR0 &= 0xF0;
-
-    /* EN=0, R/W=R, RS=rs    */
-    EN_PIN(0);           /* EN =0  */
-    RW_PIN(1);           /* R/W=R  */
-    RS_PIN(rs);          /* RS =rs */
-    _lcd_wait_300ns();
-
-    /* EN=1                  */
-    EN_PIN(1);
-    _lcd_wait_300ns();
-
-    /* read data             */
-    LCD_NOP();
-    data = GET_DATA(4);
-    _lcd_wait_300ns();
-
-    /* EN=0                  */
-    EN_PIN(0);
-    _lcd_wait_300ns();
-
-    RW_PIN(0);           /* R/W=0  */
-    FIO3DIR0 |= 0x7F;
-
-    return data;
 }
 
 static unsigned char _lcd_read_no_busy_check(unsigned char rs)
 {
-    return (_lcd_read_4bit(rs)<<4) | (_lcd_read_4bit(rs) & 0x0F);
 }
 #endif /* _LCD_READ_SUPPORT_ */
 
 
 static void _lcd_init_hw_specific(void)
 {
-    // PINSELx & PINMODEx are default(GPIO).
-    FIO0DIR0 |= 0x0F0;
-    FIO1DIR0 |= 0x03;
-    FIO0MASK &= ~(LCD_EN|LCD_RS);
-    FIO1MASK &= ~(LCD_DATA|LCD_DATA+1|LCD_DATA+2|LCD_DATA+3);   // 4bits
+   // PINSELx & PINMODEx are default(GPIO).
+   FIO0DIR |= ( 0b1111 << LCD_DATA );
+   FIO0DIR |= ( 1 << LCD_EN | 1<< LCD_RS );
 }
 
 

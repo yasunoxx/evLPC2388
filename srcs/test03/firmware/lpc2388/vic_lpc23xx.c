@@ -105,6 +105,8 @@ void Disable_IRQ(uint32_t IntSource)
     IRQ Timer Demo : Blink LED
 */
 /**************************************************************************/
+uint8_t vic_SlowTick;
+
 // タイマーのデモ
 void InitTimer0(uint32_t tusec)
 {
@@ -117,6 +119,7 @@ void InitTimer0(uint32_t tusec)
 static void usrisr_led_toggle(void)
 {
     FIO1PIN ^= 0x00040000; /* Toggle LED state */
+    vic_SlowTick++;
 }
 // タイマー割り込みデモ（ラッパー関数）
 void _Demo_Timer0Handler(void)

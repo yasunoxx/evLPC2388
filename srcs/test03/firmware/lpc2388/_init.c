@@ -1,5 +1,6 @@
 #include "lpc2300.h"
 #include "vic_lpc23xx.h"
+#include "lpc2388pinconfig.h"
 
 #define UART_INT_BIT 0x00000040
 
@@ -61,19 +62,32 @@ void LPC2388_Initialize(void)
   VIC_Init();
 
   SCS = SCS | 1;	/* FGPIO Select */
+
+  // 
+  PINSEL0 = VAL_PINSEL0;
+  PINSEL1 = VAL_PINSEL1;
+  PINSEL2 = VAL_PINSEL2;
+  PINSEL3 = VAL_PINSEL3;
+  PINSEL4 = VAL_PINSEL4;
+// PINSEL5 is not used on the LPC23XX.
+  PINSEL6 = VAL_PINSEL6;
+  PINSEL7 = VAL_PINSEL7;
+  PINSEL8 = VAL_PINSEL8;
+  PINSEL9 = VAL_PINSEL9;
+
   // LEDはP1[18]に接続されているので、これをデジタルI/Oに設定
-  PINSEL1 =0;			/* GPIO Select */
-  PINMODE1=0;			/* PullUp Enable */
+//  PINSEL1 =0;			/* GPIO Select */
+//  PINMODE1=0;			/* PullUp Enable */
 
   /* LED点灯制御設定 */
   FIO1DIR =0x00040000;	/* P1[18] OutPut */
   FIO1MASK=0x00000000;	/* P1[18] Non Mask */
   FIO1PIN =0x00040000;	/* P1[18] '1' -> LED OFF */
-//  FIO1PIN &= ~0x00040000;/* P1[18] '0' -> LED ON */
+  FIO1PIN &= ~0x00040000;/* P1[18] '0' -> LED ON */
 
   // UARTはTXD0とRXD0を使う
   /* ポートをUARTモードに設定(UART0) */
-  PINSEL0=(PINSEL0 & 0xFFFFFF0F) | 0x50;	/* TXD0&RXD0選択 */
+//  PINSEL0=(PINSEL0 & 0xFFFFFF0F) | 0x50;	/* TXD0&RXD0選択 */
   /* UART0供給クロック 72MHz/4=18MHz */
   PCLKSEL0=(PCLKSEL0 & 0xFFFFFF3F);
   /* UART0パワーイネーブル */
@@ -94,8 +108,8 @@ void LPC2388_Initialize(void)
 
 // ３行追加。これが無いと、処理がかなり遅い。
 	MAMCR = 0;//	Stop MAM
-	MAMTIM = 4;// over 60MHz
-	MAMCR = 2;//	Start MAM
+	MAMTIM = 4;// over 60MHz(4CCK)
+	MAMCR = 2;//	Start MAM(fully enable)
 
 	T0PR = 17;// LPC2388 のタイマー０のプリスケーラを、1/18 にする。
 	T0TCR = 1;// タイマーカウンタを、１μ秒で１カウントする。
