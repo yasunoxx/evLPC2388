@@ -20,14 +20,44 @@
 #define LF  11
 #define DEL 127
 
-#define SECOND 2    // vic_SlowTick increment 500msec/count
+#define SECOND 2    // SlowTick increment 500msec/count
 
 #include <stdint.h>
 #include <stdbool.h>
 
-uint8_t TxBuf[ 64 ], RxBuf[ 1034 ];
+uint8_t RxBuf[ 1034 ]; // FIXME: allocate MiniLoader/MiniMon side@Z80proto
 uint8_t Serial, CRCH, CRCL;
 uint16_t CRC;
+
+#if defined evLPC2388 || defined evADuC7129
+#include "lpc2300.h"
+#include "uart.h"
+extern volatile uint16_t vic_SlowTick;
+#define SlowTick vic_SlowTick
+#define _NOP() LCD_NOP()
+//#define USE_LCD // set/reset in Makefile
+#define LCD_initIO()
+#else   // Z80proto
+void _NOP()
+{
+#asm
+    nop
+#endasm
+}
+extern volatile uint16_t SlowTick;
+extern  uint16_t getchar_SIO0( void );
+extern  void putchar_SIO0( uint8_t );
+extern  void puts_SIO0( uint8_t * );
+#define uart0_getc()    getchar_SIO0()
+#define uart0_putc(x)   putchar_SIO0(x)
+//#define USE_LCD 0 // set/reset in Makefile
+#define LCD_initIO() DEBUG_PPIOUT_SETUP()
+#endif
+
+#if USE_LCD
+#include "xprintf.h"
+#include "lcd1602.h"
+#endif
 
 void xymodem_init( void );
 uint8_t xymodem_receive( uint16_t );   // act receiving w/timeout
@@ -40,25 +70,14 @@ uint8_t S_xymodem_state;
 uint8_t S_xymodem_EOTstate;
 uint8_t F_firstack;
 
-#if defined evLPC2388 || defined evADuC7129
-#include "lpc2300.h"
-#include "uart.h"
-#include "xprintf.h"
-#include "lcd1602.h"
-extern volatile uint16_t vic_SlowTick;
-#define _NOP() LCD_NOP()
-#else
-#define LCD_Clear
-#define LCD_SetCursorPos
-#define LCD_Puts
-#define _NOP
-#endif
-
 uint8_t xymodem_main()
 {
     uint8_t result = false, result2 = false, retryCount = 0;
 
+#if USE_LCD
+    LCD_initIO();
     LCD_Clear();
+#endif
     xymodem_init();
     while( 1 )
     {
@@ -76,14 +95,18 @@ uint8_t xymodem_main()
         }
         else
         {
+#if USE_LCD
             LCD_SetCursorPos(0, 1);
             LCD_Puts("R/NAK",16);
+#endif
         }
         if( result2 == true )
 #endif
         {
+#if USE_LCD
             LCD_SetCursorPos(0, 1);
             LCD_Puts("R/ACK",16);
+#endif
             Serial--;
             if( S_xymodem_state != 3 )  // not EOT
             {
@@ -97,8 +120,10 @@ uint8_t xymodem_main()
         }
         else
         {
+#if USE_LCD
             LCD_SetCursorPos(0, 1);
             LCD_Puts("R/NAK",16);
+#endif
             if( F_firstack == false )
             {
                 // Restart
@@ -127,6 +152,7 @@ void xymodem_init()
 
 int16_t get_SIO0_polling( void )
 {
+#if defined evLPC2388 || defined evADuC7129
     uint8_t stat;
     _NOP(); stat = U0LSR;
     if( ( stat & 0x1 ) != 0 )
@@ -137,10 +163,13 @@ int16_t get_SIO0_polling( void )
     {
         return -1;
     }
+#else   // Z80proto
+        return getchar_SIO0();
+#endif
 }
 
 uint8_t xymodem_receive( uint16_t wait )
-// timeout: wait <= prevTick - vic_SlowTick(in vic_lpc23xx.c)
+// timeout: wait <= prevTick - SlowTick(in vic_lpc23xx.c)
 {
     uint16_t count = 0, limit, prevTick;
     uint8_t buf, stat;
@@ -173,18 +202,20 @@ uint8_t xymodem_receive( uint16_t wait )
         default:
             break;
     }
-//    vic_SlowTick = 0;
-    prevTick = vic_SlowTick;
+//    SlowTick = 0;
+    prevTick = SlowTick;
+#if defined evLPC2388 || defined evADuC7129
     while( 1 )
     {
         _NOP(); stat = U0LSR;
         if( ( stat & 0x01 ) != 0 ) break;
-        if( vic_SlowTick > prevTick + wait )
+        if( SlowTick > prevTick + wait )
         {
             return NAK;
         }
     }
     _NOP(); buf = U0RBR;
+#endif
 
     switch( buf )
     {
@@ -218,6 +249,7 @@ uint8_t xymodem_receive( uint16_t wait )
             return NAK;
     }
     limit += 5;
+#if USE_LCD
     {
         uint8_t cbuf[ 10 ];
         LCD_SetCursorPos(0, 0);
@@ -225,6 +257,7 @@ uint8_t xymodem_receive( uint16_t wait )
         LCD_Puts( cbuf, 12 );
         LCD_SetCursorPos(8, 0);
     }
+#endif
     RxBuf[ count++ ] = buf;
 
     // now, receive second byte ...
@@ -240,27 +273,31 @@ uint8_t xymodem_receive( uint16_t wait )
 //            }
             count++;
             // timeout rewind
-//            vic_SlowTick = 0;
-            prevTick = vic_SlowTick;
+//            SlowTick = 0;
+            prevTick = SlowTick;
         }
         if( count >= limit ) // receive succeed(maybe)
         {
+#if USE_LCD
             {
                 uint8_t cbuf[ 10 ];
                 xsprintf( cbuf, "->%4d", count );
                 LCD_Puts( cbuf, 6 );
             }
+#endif
             CRCL = RxBuf[ --count ];
             CRCH = RxBuf[ --count ];
             return ACK;
         }
-        if( vic_SlowTick > prevTick + wait )
+        if( SlowTick > prevTick + wait )
         {
+#if USE_LCD
             {
                 uint8_t cbuf[ 10 ];
                 xsprintf( cbuf, "-X%4d", count );
                 LCD_Puts( cbuf, 6 );
             }
+#endif
             return NAK;
         }
     }

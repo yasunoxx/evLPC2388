@@ -27,7 +27,7 @@ INC = $(foreach dir, $(CSRC_DIRS), -I$(dir))
 
 # FLAGs
 CFLAGS = $(INC) -O$(OPT) -mcpu=arm7tdmi-s -I../include \
-	-DevLPC2388
+	-DevLPC2388 -DUSE_LCD=1
 ASFLAGS = -Wa -mcpu=arm7tdmi-s
 LDFLAGS = -u _printf_float --print-memory-usage
 CFLAGS += -g3 -gdwarf-2 -gstrict-dwarf
